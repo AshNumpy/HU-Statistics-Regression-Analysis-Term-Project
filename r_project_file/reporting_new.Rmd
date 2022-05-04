@@ -1,0 +1,515 @@
+---
+title: "Regresyon Ödevi"
+author: "Ramazan Erduran 21821809"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Verileri İçeri Aktarma
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(readr)
+hwdata <- read_table2("D:/Hacettepe/Regresyon/Ödev/hwdata.txt")
+head(hwdata)
+names(hwdata) <- c("Y", "X1", "X2", "X3", "X4") 
+hwdata$X4 <- as.factor(hwdata$X4)
+class(hwdata$X4)
+```
+
+Verilerimdeki değişkenleri **Y, X1, X2, X3 ve X4** olarak isimlendirdim. **X4** değişkenini ise `factor` olarak belirttim ki kategorik değişkeni uygun bir şekilde kullanabileyim.
+
+## Part 1. Senaryo
+
+Verilerim Y bağımlı değişkeni, X1, X2, X3 bağımsız nitel ve X4 bağımsız 3 katlı kategorik değişkenden oluşuyor.
+
+*Araç satma ve kiralamaya ilişkin bir şirketimiz olduğunu varsayalım. 2. el araçlar hem kiralanabiliyor hem de satılabiliyor. Sıfır araçlar ise sadece satılabiliyor kiralamada kullanılamıyor. Ayrıca Borsa İstanbul 100 endeksine bağlı hisselerimizi halkın alım satımına açmış bir şirket olalım. Bizim elimizdeki verilerde Y bağımlı değişkenimiz ise tüm bu süreçten kazandığımız gelir olsun (MilyonTL). 150 aylık bir veri setimiz olduğunu düşünelim:*
+
+| DEĞİŞKENLER |               DEĞİŞKEN SENARYOSU               |
+|:-----------:|:----------------------------------------------:|
+|      Y      |      Elde edilen toplam gelir (MilyonTL)       |
+|     X1      | Araç satışı ve kiralamadan gelen gelir (BinTL) |
+|     X2      |    Şirket hisse fiyatlarındaki değişim (TL)    |
+|     X3      |           Enflasyondaki değişim (%)            |
+|    X4-1     |            LPG ile çalışan araçlar             |
+|    X4-2     |           Benzin ile çalışan araçlar           |
+|    X4-3     |           Dizel ile çalışan araçlar            |
+
+## Part 2. Tanımlayıcı İstatistikler
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+summary(hwdata)
+```
+
+150 Aylık veri setinden elde edilen tanımlayıcı istatistiklere göre;
+
+-   Ortalama **Y = Elde edilen ortalama toplam gelir** 13.930 MilyonTL/Ay olarak bulunmuş.
+
+-   150 Aylık süre içerisindeki ortalama **X1 = Araç satışı ve kiralamalardan gelen gelir** aylık 7.063 BinTL hesaplanmış.
+
+-   Hisse senetlerimizdeki (**X2 = Şirket hisse fiyatlarındaki değişim**) durum ise aylık ortalama 2.030 TL olarak hesaplanmış. (Hissedarlarımız hisselerini satsaydı eksi değer alırdı, tam tersi hisselerimizin alınması ise bize artı değer kazandırırdı bundan dolayı bu değişkenimiz hem + hem - değer alabiliyor.)
+
+-   **X4 = Enflasyondaki değişim** değerlerinin ortalamasına baktığımızda ise 150 aylık süreçte enflasyon ortalama %1.0279 artmış.
+
+## Part 3. Doğrusallık ve Normallik Testi
+
+### Normallik testi:
+
+Normallik testini yapmadan önce görsel olarak görebilmek adına verilerin saçılım grafiği üzerine normal dağılım eğrisi çizip baktım.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+attach(hwdata)
+qqnorm(Y)
+qqline(Y)
+```
+
+Daha sonra emin olmak için sayısal olarak da kontrol ettim. Bu kısımda `shapiro.test()` fonskiyonunu kullandım.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+shapiro.test(Y)
+```
+
+Hipotezlerim;
+
+> H0: Verilerin dağılımı ile normal dağılım arasında fark yoktur.\
+> Hs: Verilerin dağılımı ile normal dağılım arasında fark yoktur.**\
+> **
+
+Shapiro test sonucumda p-value değerim $\alpha$ = 0.05 'ten küçük olduğu için yokluk hipotezimi reddedip verilerimin normal dağılmadığı kanısına vardım.
+
+Boxplot grafiği ile aykırı değer var mı ona baktım. Aykırı değerleri temizlemenin normal dağılım varsayımında bana yardımcı olabileceğini düşündüm.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+boxplot(Y)
+```
+
+### Aykırı değer temizliği:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+Q1 <- quantile(Y, 0.25)
+Q3 <- quantile(Y, 0.75)
+IQR <- IQR(Y)
+hwData <- subset(hwdata, Y > (Q1 - 1.5*IQR) & Y < (Q3 + 1.5*IQR))
+boxplot(hwData)
+detach(hwdata)
+```
+
+Aykırı değerlerini temizlediğim verilerin normal dağılıp dağılmadığını kontrol etmek için tekrardan test yaptım:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+qqnorm(hwData$Y)
+qqline(hwData$Y)
+shapiro.test(hwData$Y)
+```
+
+Gerek grafikten gerekse `shapiro.test()` sonucunda görebildiğimiz üzere, p-value: 0.6957 \> $\alpha$=0.05 için yokluk hipotezi reddedilir yani %95 güvenle söyelenebilir ki verilerimiz normal dağılıyor.
+
+### Doğrusallık:
+
+> *X4 Değişkeni kategorik bir değişken olduğu için doğrusallık incelemesi yapılamaz bundan dolayı grafikte yer vermedim.*
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+pairs(hwData[1:4])
+```
+
+Dağılım grafiklerine baktığımızda X1 X2 ve X3 değişkenleri ile Y arasında belli derecede doğrusal bir ilişki olduğunu söyleyebiliriz. Ancak burada bağımsız değişkenlerimiz arasında önemli derecede doğrusal bir ilişki de olabilir. Bundan dolayı Bağımsız değişkenlerim arasındaki doğrusallığa baktım:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+result <- lm(hwData$X1~hwData$X2)
+a<-summary(result)
+sqrt(a$r.squared)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+result <- lm(hwData$X1~hwData$X3)
+a<-summary(result)
+sqrt(a$r.squared)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+result <- lm(hwData$X2~hwData$X3)
+a<-summary(result)
+sqrt(a$r.squared)
+```
+
+Doğrusallığını izlediğim ve bağımsız değişkenlerimizin kendi aralarında bağımsız olma konusunda tabloki sonuçları elde ettim:
+
+| DEĞİŞKENLER | İLİŞKİ DERECELERİ |
+|:-----------:|:-----------------:|
+| *X1 ile X2* |    *0.7391816*    |
+| *X1 ile X3* |    *0.4812473*    |
+| *X2 ile X3* |    *0.6856835*    |
+
+Ben burada modelden çıkarıp çıkarmama veya herhangi bir işlem yapma konusunda önce regresyon analizi yapıp modeldeki anlamlılıklarına bakıp daha sonra bu aralarındaki doğrusallığın sorun olup olmadığına başka işlemler ile karar vereceğim.
+
+## Part 4. Artık İncelemesi
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+sonuc<-lm(hwData$Y~hwData$X1+hwData$X2+hwData$X3+hwData$X4)
+info <- ls.diag(sonuc)
+info
+```
+
+#### Aykırı Değer (ri):
+
+(-2,+2) aralığında olmayan Standartlaştırılmış hatalar, (-3,+3) arasında olmayan Student tipi artıklar aykırı değerdir.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+aykiri <- list()
+for (i in info$std.res){
+  if (i<-2 & i>2){
+    aykiri <- append(aykiri,which(info$std.res == i))
+  }
+}
+aykiri
+
+for (i in info$stud.res){
+  if (i<-3 & i>3){
+    aykiri <- appned(aykiri,which(info$std.dev == i))
+  }
+}
+aykiri
+```
+
+`aykiri` isimli listemiz boş döndü. Gerek Standartlaştırılmış hatalar gerekse Student tipi hatalarda aykırı değer varlığına dair incelememizin sonucu olarak söyleyebiliriz ki verilerimizde aykırı değer yoktur. Normallik testinden sonra aykıır değer temizliği yapmıştık zaten :)
+
+#### Cook Uzaklığı(Di):
+
+Tüm gözlemler üzerinden bulunan $\beta$ kestirimi ile i. gözlem çıkarıldıktan sonraki $\beta$ kestirimi arasındaki farkın bir ölçüsüdür. Aykırı değerim olmadığı için aykırı değerime ilişkin Cook uzaklığını da bulamam.
+
+## Part 5. Kestirim Denklemi
+
+### Regresyon Analizi:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+sonuc<-lm(hwData$Y~hwData$X1+hwData$X2+hwData$X3+hwData$X4)
+regression_model <- summary(sonuc)
+regression_model
+```
+
+Yukarıdaki sonuçlardan yola çıkarak;\
+Elde edilen toplam gelirdeki değişimin %76,44'ü "*Araç satışı ve kiralamadan gelen gelirler*", "*Şirket hisse fiyatlarındaki değişim*", "*Enflasyondaki değişim*" ve "*Araçların yakıt türleri*" değişkenlerince açıklanabilmektedir. Açıklanamayan kısım için farklı etkenler(değişkenler) olabilir.
+
+### Model anlamlılığı:
+
+> H0: $\beta_1$ = $\beta_2$ = $\beta_3$ = $\beta_4$ = $\beta_5$\
+> Hs: En az bir $\beta_j$ farklıdır.
+
+**`p-value: 2.2e-16` \<** $\alpha$=0.05 için küçük olduğu için %95 güvenle söyleyebiliriz ki modelimiz anlamlıdır.
+
+### Regresyon model denklemi:
+
+Model denklemini "$y_i=b0_{S_{b0}}+b_{k}X_{k_{S_{bk}}}$" formatında
+
+$y_i$ $= 5.4312_{(1.4467)} + 1.0369X1_{(0.2491)} + 2.3206X2_{(0.2844)} - 1.1229X3_{(0.2245)} - 3.7608X42_{(0.4027)} - 6.3051X43_{(0.3977)}$ $\pm 1.965$
+
+Burada ilk başta şunu söyleyebiliriz ki kılavuz değişkenimiz LPG ile çalışan araçlar değişkenidir. (X42=0 , X43=0)
+
+## Part 6. Katsayı Anlamlılıkları ve Yorumları
+
+### Kısmi F testleri:
+
+> H0: $\beta_1$ = 0\
+> Hs: $\beta_1$ $\neq$ 0
+
+**`p-value: 5.44e-05`** $\alpha$=0.05 için H0 reddedilir ve %95 güvenle söylenebilir ki araç satışı ve kiralamadan gelen gelirin modele katkısı anlamlıdır.
+
+Diğer tüm değişkenler sabit tutulduğunda araç satış ve kiralamadan gelen gelir 1 birim (1000TL) artarsa bizim gelirimizi ortalama olarak 1.0369 MilyonTL arttırır.
+
+> H0: $\beta_2$ = 0\
+> Hs: $\beta_2$ $\neq$ 0
+
+**`p-value: 1.67e-13`** $\alpha$=0.05 için H0 reddedilir ve %95 güvenle söylenebilir ki şirket hisse fiyatlarındaki artış veya azalış, elde edilen toplam geliri açıklamada önemli bir değişkendir.
+
+Diğer tüm değişkenler sabit tutulduğunda şirketimizin hisse fiyatlarındaki 1 Lot 'luk (1 Birim) bir artış toplam gelirimizi ortalama olarak aylık 2.3206 MilyonTL arttırır.
+
+> H0: $\beta_3$ = 0\
+> Hs: $\beta_3$ $\neq$ 0
+
+**`p-value: 1.66e-06`** $\alpha$=0.05 için H0 reddedilir ve %95 güvenle söylenebilir ki enflasyon etmeninin modele katkısı anlamlıdır.
+
+Diğer tüm değişkenler sabit tutulduğunda enflasyondaki %1 'lik bir artış gelirimizi aylık ortalama olarak 1.1229 MiyonTL azaltır.
+
+> H0: $\beta_4$ = 0 Hs: $\beta_4$ $\neq$ 0
+
+**`p-value: 2e-16`** $\alpha$=0.05 için H0 reddedilir ve %95 güvenle söylenebilir ki araç yakıt türü kategorik değişkenindeki LPG'li araçlar ile benzinle çalışan araçlar arasında farklılık vardır.
+
+> H0: $\beta_4$ = 0 Hs: $\beta_4$ $\neq$ 0
+
+**`p-value: 2e-16`** $\alpha$=0.05 için H0 reddedilir ve %95 güvenle söylenebilir ki X4 kategorik değişkenindeki LPG'li araçlar ile dizel ile çalışan araçlar arasında farklılık vardır.
+
+Araç yakıt türlerine baktığımızda LPG ile çalışan araçlar, benzin ve dizel ile çalışan araçlardan farklıdır. Ayrıca amacımız elde edilen geliri maksimize etmeye çalışmak olduğundan dolayı, bizim için LPG'li araçlar diğer araçlardan daha karlıdır diyebiliriz.
+
+## Part 7. Belirtme Katsayısı
+
+O ay elde edilen toplam gelirin %76,44 'ü araç satışı ve kiralamadan gelen gelir, şirket hisselerindeki fiyat değişimi, enflasyondaki değişim ve kiralanan veya satılan araçlara ilişkin yakıt türü gibi değişkenlerce açıklanabilmektedir. Geriye kalan %23,56 'lık kısım ise elimizde olmayan etmenlerce açıklanabilmektedir.
+
+## Part 8. Güven Aralıkları
+
+### Katsayılara ilişkin güven aralıkları:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+confint(sonuc, level = .99)
+```
+
+%99 güvenirlikle hesaplanan bu güven aralıkları modelimizdeki değişkenlerimizin aylık gelirimize olan etkilerinin ortalama olarak hangi aralıkta olduğunu göstermektedir.
+
+-   **(X1)** Araç satışı ve kiralamadan gelen gelir 1 birim (1000TL) artarsa eğer diğer değişkenler sabit tutulduğunda bizim gelirimizi 386.52,1TL ile 1.687.273,7TL arttırmaktadır.
+
+-   **(X2)** Hisse senetlerindeki durumda ise yine aynı şekilde diğer değişkenlerin sabit tutulması koşuluyla hisse senetlerimizdeki 1 birimlik artış (1Lot başına 1TL 'lik artış) aylık gelirimizi 1.578.060,4TL ile 3.063.117,5TL arasında bir değerde arttırmaktadır.
+
+-   **(X3)** Diğer tüm değişkenler sabit tutulduğunda enfasyondaki %1 lik bir artış bizim gelirimizi 1.709.024,9TL ile 536.711,3 TL arasında bir değerde azalmaktadır.
+
+-   **(X4)** Kategorik değişkenlerimiz hususunda ise diğer değişkenlerimiz sabitse, aracın benzinle çalışması aylık geliri 4.812.248,7TL ile 2.709.427,9TL arasında, dizel ile çalışması aylık geliri 7.343.556,1TL ile 5.266.723,6TL azaltmaktadır.
+
+## Part 9. Değişen Varyanslılık İncelemesi
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+plot(predict(sonuc), info$stud.res, ylab= "Student tipi Artıklar", xlab="Öngörülen değer")
+```
+
+Student tipi artıklar ile öngörülen değerlere ilişkin saçılım grafiğini incelediğimizde yapının rastgele olduğunu söyleyebiliriz. Burdan yola çıkarak Artıkların rastgele dağıldığı yorumunu yapabiliriz.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(lmtest)
+bptest(sonuc)
+```
+
+Ayrıca Breusch-Pagan testi sonucuna göre;
+
+> H0: Değişen varyanslılk vardır.\
+> Hs: Değişen varyanlılık yoktur.
+
+\
+**`p-value = 0.1063` \>** $\alpha$=0.05 için yokluk hipotezi reddedilemez yani değişen varyanslılık sorunu yoktur.
+
+## Part 10. Öz İlişki Sorunu
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(lmtest)
+dwtest(sonuc)
+```
+
+Model özeti tablosundan **"d=1.0031"** bulunmuştur. **"d=2(1-r)"** formülü dikkate alındığında ve tablodan d~lower~ ve d~upper~ değerleri alınıp bir tablo oluşturulduğunda *(k=4 ve n=147 için)*:
+
+|  Variable  | Value  |
+|:----------:|:------:|
+| *d~lower~* | *1.68* |
+| *d~upper~* | *1.79* |
+
+Tablodan yola çıkarak **[1.68 ; 1.79]** aralığı bizim için kararsızlık bölgesidir. Ancak elimizdeki Durbin-Watson değerimiz `DW = 1.0031` bu kararsızlık bölgesinde yer almadığı ve **[0;2]** aralığında yer aldığı için öz ilişki vardır deriz. Buna ek olarak kuracağımız seçenek hipotezimizde ise pozitif yönlü kurmalıyız:
+
+> H~o~ = Öz ilişki yoktur.\
+> H~s~ = Pozitif öz ilişki vardır.
+
+Durbin-Watson test sonucunda elde ettiğimiz `p-value = 1.758e-10` **\<** $\alpha$=0.05 değerleri için söyleyebiliriz ki, %95 güvenle pozitif öz ilişki vardır.\
+
+## Part 11. Çoklu Bağlantı Sorunu
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library("Hmisc")
+res2 <- rcorr(as.matrix(hwData[2:5]))
+res2$r
+```
+
+Değişkenlerimizin arasındaki ilişki incelendiğinde, X1 ve X2 arasında yüksek bir ilişki olduğu görülmekte. Bu durumda çoklu bağlantı olabilir. Bir diğer korelasyon inceleme yöntemi olarak:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+cor(hwData[2:4], method = "pearson")
+```
+
+Bu şekilde de X1 ve X2 arasında yüksek bir ilişki olduğunu söyleyebiliriz fakat bakalım bu ilişki düzeyi bizi etkiliyor mu?
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(DAAG)
+vif(sonuc)
+```
+
+`vif()` ile çoklu bağlantı var mı diye baktığımda o kadar da büyük vif değerleri elde edemedim, çoklu bağlantı sorunu olabilir diyebilmek için.
+
+Son olarak bu sorulara cevap verebilmek, çoklu bağlantı sorunu vardır veya yoktur diyebilmek için `colldiag()` ve `ols_eigen_cindex()` fonksiyonlarını kullandım. İki yöntemi de göstermek istedim:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(perturb)
+colldiag(model.matrix(sonuc),add.intercept=FALSE)
+
+library(olsrr)
+ols_eigen_cindex(sonuc)
+```
+
+Koşul sayısı 30'dan büyük olduğu durumda çoklu bağlantıdan etkilenilmektedir. Fakat bizim yüksek derecede korelasyona sahip bağımsız değişkenlerimiz olsa da çoklu bağlantı sorunu var diyebileceğimiz değişkenler değilmiş. Çünkü Koşul başlığı altındaki değerlerin hiçbiri 30'dan büyük değil.
+
+## Part 12. Uyum Kestirimi
+
+Veri kümesindeki $x_i$ değerlerine karşılık gelen $y_i$ kestirimi, *uyum kestirimi* adını alır.\
+Bu tanıma ilişkin $y_i$ kestirimini yapmak üzere "*X1=6.473778 , X2=0.50627316, X3=-0.028457406 , X42=0 , X43=0*" değerlerini aldım.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+names(hwData) <- c("y","x1","x2","x3","x4")
+attach(hwData)
+
+library(fastDummies)
+dummy<-dummy_cols(x4)
+x41<-dummy$.data_1
+x42<-dummy$.data_2
+x43<-dummy$.data_3
+
+kestirim <- cbind(x1,x2,x3,x42,x43)
+yi <- 5.4312 + 1.0369*6.473778 + 2.3206*0.50627316 - 1.1229*0.028457406
+yi-1.965
+yi+1.965
+```
+
+Kestirim denklemi ile hesaplanarak %95 güvenle **[11.32176;15.25176]** sonucu bulunur.\
+Yani, araç satışı ve kiralamadan gelen gelir 6.473778 BinTL, hisse senetleri 0.50627316TL ve enflasyon %0.028457406 azaldığında LPG'li bir aracın aylık olarak bize getirisi ortalama 11.32176 MilyonTL ile 15.25176 MilyonTL arasında olacaktır.
+
+## Part 13. Ön Kestirim
+
+Veri kümesinde bulunmayan yeni $\tilde{x}_i$ gözlemleri için $\tilde{y}$ değerinin kestirimi, önkestirim adını alır.\
+Önkestirimini yapmak üzere "*X1=11 , X2=-2 , X3=-2.5 , X42=1 , X43=0"* değerlerini aldım.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+yi <- 5.4312 + 1.0369*11 - 2.3206*2 + 1.1229*2.5
+yi-1.965
+yi+1.965
+```
+
+%95 güvenle **[13.03815;16.96815]** sonucu bulunur.\
+Yani, araç satışı ve kiralamadan gelen gelir 11 BinTL arttığında, hisse senetleri 2TL değer kaybettiğinde ve enflasyon %2.5 azaldığında benzinle çalışan bir aracın aylık olarak bize getirisi ortalama 13.038,15TL ile 16.968,15TL arasında olacaktır.
+
+## Part 14. Uyum ve Ön Kestirime İlişkin Beklenen Değerlerin Güven Aralıkları
+
+#### Uyum kestirimi için:
+
+P($\hat{y_i}$ - $t_{\frac{\alpha}{2},n-k-1}$ - $S_{\hat{y}_i}$ $\le$ E($\hat{y_i}$) $\le$ $\hat{y_i}$ + $t_{\frac{\alpha}{2},n-k-1}$ - $S_{\hat{y}_i}$) = 1 - $\alpha$
+
+$S\hat{y}$ = $\hat{\sigma}$ $\sqrt{\underline{x}_{i} (X'X)^{-1} \underline{x}'_{i}}$
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+predict(sonuc,interval="confidence", level=0.95)[13,]
+```
+\
+`predict()` kodunu kullanmak için linear model olan "sonuc" değişkenimi içine attım, uyum kestirimine ilişkin güven aralığı elde etmek için `interval="confidence"` olarak belirttim ve son olarak güven aralığını `level=0.95` olarak belirttim. Uyum kestirimi değerleri de veri setimin 12. satırı olduğu için 13. satırı belirttim.\
+Sonuç olarak "*X1=6.473778 , X2=0.50627316, X3=-0.028457406 , X42=0 , X43=0*" değerlerinde uyum kestirimine ilişkin güven aralığını %95 güvenle [12.57582;14.12547] olarak buldum.\
+
+"%95 güvenle söylenebilir ki araç satışı ve kiralamadan gelen gelir 6.473778 BinTL arttığında, hisse senetleri 0.50627316 TL değerlendiğinde ve enflasyon %0.028457406 azaldığında LPG'yle çalışan bir aracın aylık olarak bize getirisi nin beklenen değeri ortalama 12.57582 MilyonTL ile 14.12547 MilyonTL arasında olacaktır."
+\
+
+#### Ön kestirim için:
+
+P($\tilde{y}$ - $t_{\frac{\alpha}{2},n-k-1}$ - $S_{\tilde{y}}$ $\le$ E($\tilde{y}$) $\le$ $\tilde{y}$ + $t_{\frac{\alpha}{2},n-k-1}$ - $S_{\tilde{y}}$
+
+$S\tilde{y}$ = $\hat{\sigma}$ $\sqrt{1 + \underline{\tilde{x}} (X'X)^{-1} \underline{\tilde{x}}'}$
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+predict(sonuc,data.frame(x1=11, x2=-2, x3=-2.5),interval="prediction", level=0.95)[13,]
+```
+Ön kestirimi yapmak üzre "*X1=6.473778 , X2=0.50627316, X3=-0.028457406 , X42=0 , X43=0*" değerlerini aldım ve sonucunda %95 güvenle elde ettiğim güven aralığı;
+
+[9.389428;17.311855]\
+Buradan hareketle yorumumuzu "%95 güvenle söylenebilir ki araç satışı ve kiralamadan gelen gelir 11 BinTL arttığında, hisse senetleri 2TL değer kaybettiğinde ve enflasyon %2.5 azaldığında benzinle çalışan bir aracın aylık olarak bize getirisi nin beklenen değeri ortalama 9.389428 MilyonTL ile 17.311855 MilyonTL arasında olacaktır."
+
+
+## Part 15. En İyi Model
+
+### İleriye doğru seçim yöntemi:
+
+Bu yöntem, hiç bir bağımsız değişkenin bulunmadığı regresyon denklemine (y = 𝛽0 + $\epsilon$) değişkenlerin her adımda tek tek eklenmesiyle uygulanır.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(stats)
+attach(hwData)
+null_model <- lm(y ~ 1)
+ileri <- step(null_model,y~x1+x2+x3+x4,  direction = "forward")
+ileri
+```
+
+\
+Bağımlı değişken $y$ olduğu durumda birinci adımda $x_4$ modele değişkeni girmiştir. Daha sonra ikinci adımda $x_2$ değişkeni modele girmiştir. 3. Adımda $x_3$ değişkeni, 4. adımda ise $x_1$ değişkeni modele girmiştir.\
+Demek ki tüm değişkenler modelde anlamlı olduğu için tüm değişkenler modelimizde yer almıştır.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+summary(ileri)
+```
+
+Yukarıdaki çıktımızdaki p değerlerinden de görüldüğü üzere tüm değişkenlerimizin modele katkısı %99 güven düzeyinde bile anlamlıdır.
+
+Ayrıca model de anlamlıdır (`p-value: < 2.2e-16` \< $\alpha = 0.05$)
+
+En iyi model:    format($y_i=\beta0_{S_{\beta0}}+\beta1x1_{S_{\beta1}}$)
+
+$$
+y_i=5.4312_{1.4467} - 3.7608X42_{0.4027} - 6.3051X43_{0.3977} + 2.3206X2_{0.2844} - 1.1229X3_{0.2245} + 1.0369X1_{0.2491} ± 1.965
+$$\
+\### Geriye doğru seçim yöntemi: Bu yöntem, tüm değişkenlerin bulunduğu regresyon denkleminden, değişkenlerin her adımda tek tek çıkartılmasıyla uygulanır.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+geri <- step(sonuc, direction = "backward")
+
+```
+
+\
+Geriye doğru seçim yönteminin özelliğinden tüm değişkenler modelde olarak başlıyor. İlk model ve ayrıca son model tüm bağımsız değişkenlerin modelde bulunduğu durumdur ki o şekilde de kalmıştır.\
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+summary(geri)
+```
+
+\
+Yukarıdaki çıktımızdan anlaşılan o ki değişkenlerimizin hepsi anlamlı değişkenler.\
+(p-value değerlerinin hepsi $\alpha=0.05$ 'ten küçük)\
+\
+Geriye doğru seçim yöntemi de ileriye doğru seçim yöntemi ile aynı sonucu verdi.\
+En iyi modelde tüm değişkenlerimiz var ayrıca modelimiz de anlamlı.\
+\
+\### Adımsal Seçim Yöntemi: Adımsal regresyon yöntemi, ileriye doğru seçim ve geriye doğru çıkarma yöntemlerinin aynı anda kullanılmasıyla uygulanır.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(MASS)
+wise_model <- stepAIC(sonuc, direction = "both" ,trace="FALSE")
+summary(wise_model)
+detach(hwData)
+```
+
+\
+Adımsal seçim yöntemimiz de diğer iki yöntemimizden farksız olarka tüm değişkenlerimizi anlamlı buldu ve en iyi model seçimimize ekledi.\
+En iyi modelimiz tüm değişkenlerimizin bulunduğu önceki modelimizle aynıdır. Ayrıca modelimiz de anlamlıdır.\
+
+## Part 16. Ridge Regresyon
+
+Ridge Regresyon çoklu bağlantı sorunlarının oluşmasında çalınan bir kapıdır. Benim çoklu bağlantı sorunum yok ama hocalarımız yine de bu kapıyı çalmamızı istiyor. Genelde cevabını bildiğim sorular sormam konusunda kızıyorlar ama...\
+Çalalım bakalım cevabını bilsek ise...\
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+attach(hwData)
+ridge <- lm.ridge(y~x1+x2+x3+x4 , lambda = seq(0,1,0.05))
+
+matplot(ridge$lambda,
+        t(ridge$coef),
+        type="s",
+        lwd=2,
+        lty=1,
+        xlab=expression(lambda),
+        ylab=expression(hat(beta)))
+abline(h=0,lwd=2)
+
+```
+
+\
+Hızlı artış ya da azalış gösteren katsayılara karşılık gelen değişkenler çoklu bağlantılı değişkenlerdir.\
+Ayrıca sıfır eksenin civarında seyreden değişkenler de modelde önemsiz değişkeni göstermektedir.\
+\
+Ama görüldüğü üzere mis gibi günahsız alkolsüz sim suyuyla yıkanmış gibi bir grafiğimiz var ne "çoklu bağlantı sorunu var ya bunda" dedirtir, ne de "şu değişken önemsiz gibi mi duruyor" gibi şüpheye düşürtür.\
+\
+Analizimizin önceki adımlarında da yaptığımız üzre söyleyebiliriz ki çoklu bağlantı sorunu yoktur ve hiç bir değişkenimiz 0 ekseni civarında da seyretmiyor.\
+Bu da sayısal açıklaması:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ridge$coef[,ridge$lam == 0.4]
+```
