@@ -21,6 +21,8 @@ Bu proje, 2. el araba satışı ve araba kiralama işi yapan bir firmanın detay
 
 - Tahminler ve İçgörüler: Regresyon modelleri kullanılarak gelecekteki fiyatlar ve kiralama süreleri tahmin edilir. Ayrıca, müşteri davranışlarına ilişkin önemli içgörüler elde edilir.
 
+⚠️ Proje hakkında detaylı raporu okumak isterseniz `./Detaylı Proje Raporu.pdf` dosyasına göz atabilirsiniz.
+
 </details>
 
 ---
@@ -44,3 +46,5 @@ This project involves a comprehensive regression analysis for a company operatin
 - Regression Analysis: In-depth analysis is performed using different regression techniques. These analyses aim to determine the relationships between car prices, rental durations, and other variables.
 
 - Predictions and Insights: Regression models are used to predict future prices and rental durations. Additionally, important insights about customer behaviors are obtained.
+
+⚠️ If you want to read the detailed report about the project, you can browse the `./Detailed Project Report.pdf` file.
