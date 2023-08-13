@@ -47,4 +47,4 @@ This project involves a comprehensive regression analysis for a company operatin
 
 - Predictions and Insights: Regression models are used to predict future prices and rental durations. Additionally, important insights about customer behaviors are obtained.
 
-⚠️ If you want to read the detailed report about the project, you can browse the `./Detailed Project Report.pdf` file.
+⚠️ If you want to read the detailed report about the project, you can browse the `./Detaylı Proje Raporu.pdf` file.
